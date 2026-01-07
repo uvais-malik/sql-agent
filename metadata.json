@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Text-to-SQL Explorer",
+  "description": "A natural language interface for databases using Gemini 3. Converts plain English questions into SQL queries and visualizes the results using a mock in-memory database.",
+  "requestFramePermissions": []
+}
