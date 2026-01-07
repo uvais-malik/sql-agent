@@ -107,8 +107,7 @@ const App: React.FC = () => {
     setError(null);
     setSql('');
     setResult(null);
-    setIsGenericMode(false);
-    setQuestion('');
+    // Don't reset question here to keep user input if they switch modes
   };
 
   const enableGenericMode = () => {
@@ -127,6 +126,7 @@ const App: React.FC = () => {
     setDbType('none');
     setIsGenericMode(false);
     resetState();
+    setQuestion('');
     setShowUrlInput(false);
   };
 
@@ -138,9 +138,9 @@ const App: React.FC = () => {
     e.preventDefault();
     if (!question.trim()) return;
     
+    // Auto-select Generic Mode if no DB is loaded
     if (!db && !isGenericMode) {
-      setError("Please load a database or select 'Use without dataset'.");
-      return;
+      setIsGenericMode(true);
     }
 
     setIsGenerating(true);
@@ -177,7 +177,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans">
-      <SchemaViewer schema={schema} />
+      {!isGenericMode && <SchemaViewer schema={schema} />}
 
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         
@@ -205,7 +205,8 @@ const App: React.FC = () => {
                  </button>
               )}
               
-              {db && (
+              {/* Show controls if DB loaded OR in Generic Mode (so user can switch to a DB) */}
+              {(db || isGenericMode) && (
                 <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
                   <button
                     onClick={loadDemoData}
@@ -229,7 +230,7 @@ const App: React.FC = () => {
                <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${db ? 'bg-emerald-950/30 border-emerald-900/50' : 'bg-slate-800 border-slate-700'}`}>
                 <div className={`w-1.5 h-1.5 rounded-full ${db ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`}></div>
                 <span className={`text-xs font-medium ${db ? 'text-emerald-500' : 'text-slate-400'}`}>
-                  {db ? (dbType === 'demo' ? 'Demo Data' : 'Custom DB') : (isGenericMode ? 'No Dataset' : 'Waiting...')}
+                  {db ? (dbType === 'demo' ? 'Demo Data' : 'Custom DB') : (isGenericMode ? 'No Dataset' : 'Setup Required')}
                 </span>
               </div>
             </div>
@@ -239,8 +240,8 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
           <div className="max-w-4xl mx-auto space-y-8">
             
-            {/* Question Input */}
-            <section className={!hasSelectedMode ? "opacity-50 pointer-events-none transition-all" : "transition-all"}>
+            {/* Question Input - Always Active */}
+            <section className="transition-all">
               <form onSubmit={handleGenerate} className="relative group">
                 <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
                   <MessageSquare className="w-5 h-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
@@ -249,13 +250,13 @@ const App: React.FC = () => {
                   type="text"
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  placeholder={db ? "Ask a question about your data..." : "Generate SQL without a dataset..."}
+                  placeholder="Ask a question about your data (or just type to generate generic SQL)..."
                   className="w-full bg-slate-900 border border-slate-700 text-slate-100 pl-12 pr-14 py-4 rounded-xl shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all placeholder:text-slate-600 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isGenerating || !hasSelectedMode}
+                  disabled={isGenerating}
                 />
                 <button
                   type="submit"
-                  disabled={isGenerating || !question.trim() || !hasSelectedMode}
+                  disabled={isGenerating || !question.trim()}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-colors shadow-lg shadow-indigo-900/20"
                 >
                   {isGenerating ? (
@@ -267,18 +268,13 @@ const App: React.FC = () => {
               </form>
             </section>
 
-             {/* Landing / Mode Selection */}
+             {/* Setup Selection Cards (Only shown if no mode selected) */}
              {!hasSelectedMode && (
-               <div className="absolute inset-0 flex items-center justify-center p-4 bg-[#0f172a]/80 backdrop-blur-sm z-10">
-                 <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8 animate-in fade-in zoom-in-95 duration-300">
+               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     
-                    {/* Header */}
                     <div className="text-center mb-8">
-                      <div className="w-16 h-16 bg-indigo-500/10 rounded-2xl border border-indigo-500/20 flex items-center justify-center mx-auto mb-4">
-                        <Database className="w-8 h-8 text-indigo-400" />
-                      </div>
-                      <h2 className="text-2xl font-bold text-white mb-2">Welcome to Text-to-SQL Explorer</h2>
-                      <p className="text-slate-400">Choose how you want to start generating SQL queries with Gemini.</p>
+                      <h2 className="text-xl font-bold text-white mb-2">Get Started</h2>
+                      <p className="text-slate-400 text-sm">Select a data source or just start typing above.</p>
                     </div>
 
                     {/* URL Input Form */}
@@ -327,6 +323,7 @@ const App: React.FC = () => {
                           </div>
                           <div>
                             <h3 className="font-semibold text-sm text-slate-200">Demo Data</h3>
+                            <p className="text-xs text-slate-500 mt-1">Sample E-commerce DB</p>
                           </div>
                         </button>
 
@@ -341,6 +338,7 @@ const App: React.FC = () => {
                           </div>
                           <div>
                             <h3 className="font-semibold text-sm text-slate-200">Upload File</h3>
+                            <p className="text-xs text-slate-500 mt-1">Your SQLite .db file</p>
                           </div>
                         </button>
 
@@ -355,6 +353,7 @@ const App: React.FC = () => {
                           </div>
                           <div>
                             <h3 className="font-semibold text-sm text-slate-200">From URL</h3>
+                            <p className="text-xs text-slate-500 mt-1">Load remote file</p>
                           </div>
                         </button>
 
@@ -368,6 +367,7 @@ const App: React.FC = () => {
                           </div>
                           <div>
                             <h3 className="font-semibold text-sm text-slate-200">No Dataset</h3>
+                            <p className="text-xs text-slate-500 mt-1">SQL generation only</p>
                           </div>
                         </button>
                       </div>
@@ -380,7 +380,6 @@ const App: React.FC = () => {
                       accept=".sqlite,.db,.sqlite3" 
                       onChange={handleFileUpload}
                     />
-                 </div>
                </div>
              )}
 
@@ -408,13 +407,31 @@ const App: React.FC = () => {
                   onChange={setSql}
                   onRun={handleRunQuery}
                   isRunning={isExecuting}
+                  isReadOnly={!db}
                 />
                 
                 {db ? (
                     <ResultsTable result={result} />
                 ) : (
-                    <div className="bg-slate-900/50 border border-slate-800 border-dashed rounded-lg p-6 text-center text-slate-500 text-sm">
-                        Connect a database to execute this query.
+                    <div className="grid md:grid-cols-2 gap-4">
+                        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5">
+                            <h3 className="text-slate-300 font-medium mb-2 flex items-center gap-2">
+                                <Terminal className="w-4 h-4 text-indigo-400" />
+                                Next Steps
+                            </h3>
+                            <p className="text-slate-500 text-sm leading-relaxed">
+                                Copy the generated SQL and execute it in your local database client (e.g., DBeaver, TablePlus, or sqlite3 CLI).
+                            </p>
+                        </div>
+                        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5">
+                             <h3 className="text-slate-300 font-medium mb-2 flex items-center gap-2">
+                                <Database className="w-4 h-4 text-emerald-400" />
+                                Want to run it here?
+                            </h3>
+                            <p className="text-slate-500 text-sm leading-relaxed">
+                                Upload a SQLite database file using the "Upload" button in the top right to execute queries directly in the browser.
+                            </p>
+                        </div>
                     </div>
                 )}
               </div>
