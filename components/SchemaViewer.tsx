@@ -1,6 +1,6 @@
 import React from 'react';
 import { TableSchema } from '../types';
-import { Database, Table } from 'lucide-react';
+import { Database, Table, Hash, Type } from 'lucide-react';
 
 interface SchemaViewerProps {
   schema: TableSchema[];
@@ -8,31 +8,27 @@ interface SchemaViewerProps {
 
 const SchemaViewer: React.FC<SchemaViewerProps> = ({ schema }) => {
   return (
-    <div className="bg-slate-900 border-r border-slate-800 w-full md:w-80 flex-shrink-0 h-full overflow-y-auto p-4 hidden md:block">
-      <div className="flex items-center gap-2 mb-6 text-emerald-400">
-        <Database className="w-5 h-5" />
-        <h2 className="font-bold text-lg tracking-wide">Data Schema</h2>
-      </div>
-
-      <div className="space-y-6">
+    <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="space-y-4">
         {schema.length === 0 ? (
-          <div className="text-slate-500 text-sm text-center py-10">
-            No database loaded.
+          <div className="text-slate-600 text-sm text-center py-10 px-4 border border-dashed border-slate-800 rounded-lg">
+            <Database className="w-8 h-8 mx-auto mb-2 opacity-20" />
+            <p>No schema loaded</p>
           </div>
         ) : (
           schema.map((table) => (
-            <div key={table.tableName} className="bg-slate-850 rounded-lg p-3 border border-slate-700/50 shadow-sm">
-              <div className="flex items-center gap-2 mb-3 text-slate-200 border-b border-slate-700 pb-2">
-                <Table className="w-4 h-4 text-indigo-400" />
-                <h3 className="font-semibold text-sm uppercase tracking-wider">{table.tableName}</h3>
+            <div key={table.tableName} className="rounded-lg border border-white/5 bg-white/[0.02] overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 bg-white/[0.03] border-b border-white/5">
+                <Table className="w-3.5 h-3.5 text-indigo-400" />
+                <h3 className="font-medium text-sm text-slate-200">{table.tableName}</h3>
               </div>
-              <ul className="space-y-2">
+              <ul className="py-1">
                 {table.columns.map((col) => (
-                  <li key={col.name} className="flex flex-col text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-300 font-mono font-medium">{col.name}</span>
-                      <span className="text-slate-500 text-[10px] bg-slate-800 px-1.5 py-0.5 rounded">{col.type}</span>
-                    </div>
+                  <li key={col.name} className="px-3 py-1.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors group">
+                    <span className="text-xs text-slate-400 font-mono group-hover:text-slate-300">{col.name}</span>
+                    <span className="text-[10px] text-slate-600 bg-black/40 px-1.5 py-0.5 rounded border border-white/5 font-mono group-hover:border-white/10">
+                      {col.type}
+                    </span>
                   </li>
                 ))}
               </ul>

@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Sparkles, Terminal, MessageSquare, ArrowRight, Upload, Database, RefreshCw, AlertTriangle, Code, Home, Link as LinkIcon, X } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Sparkles, Terminal, ArrowUp, Upload, Database, RefreshCw, AlertTriangle, Code, Link as LinkIcon, X, Command, Activity, Play } from 'lucide-react';
 import SchemaViewer from './components/SchemaViewer';
 import SqlEditor from './components/SqlEditor';
 import ResultsTable from './components/ResultsTable';
@@ -26,10 +26,13 @@ const App: React.FC = () => {
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlToLoad, setUrlToLoad] = useState('');
   
-  // Mode State (true if user explicitly chose "Use without dataset")
+  // Mode State
   const [isGenericMode, setIsGenericMode] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // No longer needed for auto-scroll since input is at top
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const loadDemoData = async () => {
     setIsDbLoading(true);
@@ -107,7 +110,6 @@ const App: React.FC = () => {
     setError(null);
     setSql('');
     setResult(null);
-    // Don't reset question here to keep user input if they switch modes
   };
 
   const enableGenericMode = () => {
@@ -138,7 +140,6 @@ const App: React.FC = () => {
     e.preventDefault();
     if (!question.trim()) return;
     
-    // Auto-select Generic Mode if no DB is loaded
     if (!db && !isGenericMode) {
       setIsGenericMode(true);
     }
@@ -152,7 +153,7 @@ const App: React.FC = () => {
       const generatedSql = await generateSqlFromText(question, schemaString);
       setSql(generatedSql);
     } catch (err: any) {
-      setError("Failed to generate SQL. Please check your API key or try again.");
+      setError("Failed to generate SQL. Please check your API key.");
       console.error(err);
     } finally {
       setIsGenerating(false);
@@ -176,269 +177,211 @@ const App: React.FC = () => {
   const hasSelectedMode = db !== null || isGenericMode;
 
   return (
-    <div className="flex h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans">
-      {!isGenericMode && <SchemaViewer schema={schema} />}
-
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        
-        {/* Header */}
-        <header className="px-8 py-5 border-b border-slate-800 bg-slate-950/50 backdrop-blur-sm flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
-                <Terminal className="w-5 h-5 text-indigo-400" />
-              </div>
-              <div>
-                <h1 className="font-bold text-lg text-white tracking-tight">Text-to-SQL Explorer</h1>
-                <p className="text-xs text-slate-500">Powered by Gemini 3 Pro</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              {hasSelectedMode && (
-                 <button
-                   onClick={resetApp}
-                   className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-all border border-transparent hover:border-slate-700"
-                   title="Go back to start"
-                 >
-                   <Home className="w-4 h-4" />
-                   <span className="hidden sm:inline">Start Over</span>
-                 </button>
-              )}
-              
-              {/* Show controls if DB loaded OR in Generic Mode (so user can switch to a DB) */}
-              {(db || isGenericMode) && (
-                <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
-                  <button
-                    onClick={loadDemoData}
-                    disabled={isDbLoading}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${dbType === 'demo' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isDbLoading && dbType === 'demo' ? 'animate-spin' : ''}`} />
-                    Demo
-                  </button>
-                  <button
-                    onClick={triggerFileUpload}
-                    disabled={isDbLoading}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${dbType === 'custom' ? 'bg-indigo-600/20 text-indigo-300 shadow-sm border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300'}`}
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    Upload
-                  </button>
+    <div className="flex h-screen overflow-hidden font-sans text-slate-200">
+      
+      {/* Sidebar - Data Dock */}
+      {!isGenericMode && (
+        <div className="w-80 hidden md:flex flex-col border-r border-white/5 bg-black/20 backdrop-blur-xl">
+          <div className="p-5 border-b border-white/5 flex items-center gap-3">
+             <div className="w-8 h-8 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <Terminal className="w-4 h-4 text-white" />
+             </div>
+             <span className="font-semibold tracking-tight text-white">SQL Explorer</span>
+          </div>
+          <SchemaViewer schema={schema} />
+          
+          {/* Active DB Indicator */}
+          {hasSelectedMode && (
+             <div className="p-4 border-t border-white/5 bg-white/[0.02]">
+                <div className="flex items-center justify-between mb-2">
+                   <span className="text-xs font-mono uppercase text-slate-500">Active Source</span>
+                   <button onClick={resetApp} className="text-[10px] text-red-400 hover:text-red-300 transition-colors">Disconnect</button>
                 </div>
-              )}
+                <div className="flex items-center gap-2 text-sm text-emerald-400">
+                   <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                   {dbType === 'demo' ? 'Demo E-Commerce' : dbType === 'custom' ? 'Custom Database' : 'No Database'}
+                </div>
+             </div>
+          )}
+        </div>
+      )}
 
-               <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${db ? 'bg-emerald-950/30 border-emerald-900/50' : 'bg-slate-800 border-slate-700'}`}>
-                <div className={`w-1.5 h-1.5 rounded-full ${db ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`}></div>
-                <span className={`text-xs font-medium ${db ? 'text-emerald-500' : 'text-slate-400'}`}>
-                  {db ? (dbType === 'demo' ? 'Demo Data' : 'Custom DB') : (isGenericMode ? 'No Dataset' : 'Setup Required')}
-                </span>
-              </div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col relative h-full bg-[#050505]">
+        
+        {/* Top Navigation (Mobile/Tablet or simplified) */}
+        <header className="h-16 flex items-center justify-between px-6 border-b border-white/5 md:hidden bg-[#0A0A0A]">
+            <div className="flex items-center gap-2">
+               <Terminal className="w-5 h-5 text-indigo-400" />
+               <span className="font-semibold">SQL Explorer</span>
             </div>
+            {hasSelectedMode && (
+               <button onClick={resetApp} className="text-xs text-slate-400">Reset</button>
+            )}
         </header>
 
-        {/* Main Area */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
-          <div className="max-w-4xl mx-auto space-y-8">
-            
-            {/* Question Input - Always Active */}
-            <section className="transition-all">
-              <form onSubmit={handleGenerate} className="relative group">
-                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                  <MessageSquare className="w-5 h-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
-                </div>
-                <input
-                  type="text"
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="Ask a question about your data (or just type to generate generic SQL)..."
-                  className="w-full bg-slate-900 border border-slate-700 text-slate-100 pl-12 pr-14 py-4 rounded-xl shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all placeholder:text-slate-600 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isGenerating}
-                />
-                <button
-                  type="submit"
-                  disabled={isGenerating || !question.trim()}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-colors shadow-lg shadow-indigo-900/20"
-                >
-                  {isGenerating ? (
-                    <Sparkles className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <ArrowRight className="w-5 h-5" />
-                  )}
-                </button>
-              </form>
-            </section>
-
-             {/* Setup Selection Cards (Only shown if no mode selected) */}
-             {!hasSelectedMode && (
-               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    
-                    <div className="text-center mb-8">
-                      <h2 className="text-xl font-bold text-white mb-2">Get Started</h2>
-                      <p className="text-slate-400 text-sm">Select a data source or just start typing above.</p>
+        {/* Scrollable Feed */}
+        <div className="flex-1 overflow-y-auto scroll-smooth p-4 md:p-10">
+           <div className="max-w-5xl mx-auto">
+              
+              {/* Setup / Welcome Screen */}
+              {!hasSelectedMode ? (
+                 <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
+                    <div className="text-center mb-12">
+                       <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-400 mb-4 tracking-tight">
+                         Explore data with natural language
+                       </h1>
+                       <p className="text-lg text-slate-500 max-w-xl mx-auto">
+                         Connect a database, ask questions in plain English, and get instant SQL + results.
+                       </p>
                     </div>
 
-                    {/* URL Input Form */}
                     {showUrlInput ? (
-                       <form onSubmit={handleUrlSubmit} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 mb-6 animate-in slide-in-from-bottom-2">
+                       <div className="w-full max-w-md glass-panel p-6 rounded-2xl animate-slide-up">
                           <div className="flex justify-between items-center mb-4">
-                             <h3 className="font-semibold text-slate-200 flex items-center gap-2">
-                               <LinkIcon className="w-4 h-4 text-sky-400" />
+                             <h3 className="font-medium text-white flex items-center gap-2">
+                               <LinkIcon className="w-4 h-4 text-indigo-400" />
                                Load from URL
                              </h3>
-                             <button type="button" onClick={() => setShowUrlInput(false)} className="text-slate-400 hover:text-white">
-                               <X className="w-4 h-4" />
+                             <button onClick={() => setShowUrlInput(false)} className="text-slate-500 hover:text-white"><X className="w-4 h-4"/></button>
+                          </div>
+                          <form onSubmit={handleUrlSubmit} className="flex gap-2">
+                             <input 
+                               type="url" 
+                               value={urlToLoad} 
+                               onChange={e => setUrlToLoad(e.target.value)}
+                               className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                               placeholder="https://.../db.sqlite"
+                               autoFocus
+                             />
+                             <button disabled={isDbLoading} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 rounded-lg text-sm font-medium transition-colors">
+                                {isDbLoading ? '...' : 'Load'}
                              </button>
-                          </div>
-                          <div className="flex gap-2">
-                            <input 
-                              type="url" 
-                              value={urlToLoad}
-                              onChange={(e) => setUrlToLoad(e.target.value)}
-                              placeholder="https://raw.githubusercontent.com/.../mydb.sqlite" 
-                              className="flex-1 bg-slate-900 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
-                              autoFocus
-                            />
-                            <button 
-                              type="submit" 
-                              disabled={isDbLoading || !urlToLoad}
-                              className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                            >
-                              {isDbLoading ? 'Loading...' : 'Load'}
-                            </button>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-2">
-                             Note: The URL must allow Cross-Origin (CORS) requests (e.g., GitHub Raw, Gists).
-                          </p>
-                       </form>
+                          </form>
+                       </div>
                     ) : (
-                      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {/* Demo */}
-                        <button 
-                          onClick={loadDemoData}
-                          disabled={isDbLoading}
-                          className="flex flex-col items-center gap-4 p-5 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-indigo-500/50 rounded-xl transition-all group text-center"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <RefreshCw className="w-5 h-5 text-emerald-400" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-sm text-slate-200">Demo Data</h3>
-                            <p className="text-xs text-slate-500 mt-1">Sample E-commerce DB</p>
-                          </div>
-                        </button>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl">
+                         {/* Card 1 */}
+                         <button onClick={loadDemoData} disabled={isDbLoading} className="group glass-panel p-6 rounded-2xl text-left hover:border-indigo-500/50 transition-all hover:-translate-y-1">
+                            <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4 group-hover:bg-emerald-500/20 transition-colors">
+                               <Database className="w-5 h-5 text-emerald-400" />
+                            </div>
+                            <h3 className="text-white font-medium mb-1">Demo Dataset</h3>
+                            <p className="text-sm text-slate-500">Sample e-commerce database with customers & orders.</p>
+                         </button>
 
-                        {/* Upload */}
-                        <button 
-                          onClick={triggerFileUpload}
-                          disabled={isDbLoading}
-                          className="flex flex-col items-center gap-4 p-5 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-indigo-500/50 rounded-xl transition-all group text-center"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Upload className="w-5 h-5 text-blue-400" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-sm text-slate-200">Upload File</h3>
-                            <p className="text-xs text-slate-500 mt-1">Your SQLite .db file</p>
-                          </div>
-                        </button>
+                         {/* Card 2 */}
+                         <button onClick={triggerFileUpload} disabled={isDbLoading} className="group glass-panel p-6 rounded-2xl text-left hover:border-blue-500/50 transition-all hover:-translate-y-1">
+                            <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center mb-4 group-hover:bg-blue-500/20 transition-colors">
+                               <Upload className="w-5 h-5 text-blue-400" />
+                            </div>
+                            <h3 className="text-white font-medium mb-1">Upload File</h3>
+                            <p className="text-sm text-slate-500">Load your own SQLite (.db, .sqlite) file securely.</p>
+                         </button>
+                         
+                         {/* Card 3 */}
+                         <button onClick={() => setShowUrlInput(true)} disabled={isDbLoading} className="group glass-panel p-6 rounded-2xl text-left hover:border-purple-500/50 transition-all hover:-translate-y-1">
+                            <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center mb-4 group-hover:bg-purple-500/20 transition-colors">
+                               <LinkIcon className="w-5 h-5 text-purple-400" />
+                            </div>
+                            <h3 className="text-white font-medium mb-1">Load URL</h3>
+                            <p className="text-sm text-slate-500">Fetch a database file from a remote public URL.</p>
+                         </button>
+                      </div>
+                    )}
+                    
+                    <button onClick={enableGenericMode} className="mt-8 text-sm text-slate-500 hover:text-white transition-colors flex items-center gap-2">
+                       <Code className="w-4 h-4" />
+                       Or just generate SQL without data
+                    </button>
+                    <input type="file" ref={fileInputRef} className="hidden" accept=".sqlite,.db,.sqlite3" onChange={handleFileUpload} />
+                 </div>
+              ) : (
+                 /* Main Interface (Input + Results) */
+                 <div className="space-y-8 animate-fade-in">
+                    
+                    {/* INPUT AREA (Moved to top) */}
+                    <div className="glass-panel p-2 rounded-2xl shadow-xl border border-white/10">
+                        <form onSubmit={handleGenerate}>
+                            <div className="relative">
+                                <div className="absolute top-3 left-4 text-slate-500">
+                                   {isGenerating ? <Sparkles className="w-5 h-5 animate-spin text-indigo-400" /> : <Command className="w-5 h-5" />}
+                                </div>
+                                <textarea 
+                                   value={question}
+                                   onChange={(e) => setQuestion(e.target.value)}
+                                   onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && !e.shiftKey) {
+                                         e.preventDefault();
+                                         handleGenerate(e);
+                                      }
+                                   }}
+                                   placeholder="Ask a question about your data (e.g., 'Show top 5 customers by sales')"
+                                   className="w-full bg-black/20 text-white placeholder:text-slate-500 pl-12 pr-16 py-3 rounded-xl border-none focus:ring-1 focus:ring-indigo-500/50 resize-none min-h-[60px]"
+                                   rows={2}
+                                />
+                                <div className="absolute bottom-2.5 right-2.5">
+                                    <button 
+                                       type="submit" 
+                                       disabled={!question.trim() || isGenerating}
+                                       className={`
+                                          p-2 rounded-lg transition-all
+                                          ${question.trim() && !isGenerating 
+                                             ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/25' 
+                                             : 'bg-white/5 text-slate-500 cursor-not-allowed'}
+                                       `}
+                                    >
+                                       <ArrowUp className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
 
-                         {/* URL */}
-                         <button 
-                          onClick={() => setShowUrlInput(true)}
-                          disabled={isDbLoading}
-                          className="flex flex-col items-center gap-4 p-5 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-indigo-500/50 rounded-xl transition-all group text-center"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-sky-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <LinkIcon className="w-5 h-5 text-sky-400" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-sm text-slate-200">From URL</h3>
-                            <p className="text-xs text-slate-500 mt-1">Load remote file</p>
-                          </div>
-                        </button>
-
-                        {/* No Dataset */}
-                        <button 
-                          onClick={enableGenericMode}
-                          className="flex flex-col items-center gap-4 p-5 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-indigo-500/50 rounded-xl transition-all group text-center"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Code className="w-5 h-5 text-purple-400" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-sm text-slate-200">No Dataset</h3>
-                            <p className="text-xs text-slate-500 mt-1">SQL generation only</p>
-                          </div>
-                        </button>
+                    {error && (
+                      <div className="glass-panel border-red-900/50 bg-red-950/10 p-4 rounded-xl flex items-start gap-3 animate-slide-up">
+                        <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5" />
+                        <div>
+                           <h4 className="text-red-400 font-medium text-sm">Error</h4>
+                           <p className="text-red-300/80 text-sm">{error}</p>
+                        </div>
                       </div>
                     )}
 
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      accept=".sqlite,.db,.sqlite3" 
-                      onChange={handleFileUpload}
-                    />
-               </div>
-             )}
+                    {/* SQL Editor Card */}
+                    {sql && (
+                       <div className="animate-slide-up">
+                          <div className="flex items-center justify-between mb-2 px-1">
+                             <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                                <span className="text-xs font-mono text-indigo-400 uppercase tracking-wider">Generated Query</span>
+                             </div>
+                          </div>
+                          <SqlEditor 
+                             sql={sql} 
+                             onChange={setSql} 
+                             onRun={handleRunQuery} 
+                             isRunning={isExecuting} 
+                             isReadOnly={!db} 
+                          />
+                       </div>
+                    )}
 
-            {/* Helper Text for Generic Mode */}
-             {isGenericMode && !sql && (
-                <div className="mt-8 text-center text-slate-500 text-sm">
-                   <p>You are in <strong>Generic Mode</strong>. Gemini will generate SQL based on standard conventions.</p>
-                   <p className="mt-1">Since no database is connected, queries cannot be executed.</p>
-                </div>
-             )}
-
-            {/* Error Message */}
-            {error && (
-              <div className="p-4 rounded-lg bg-red-950/20 border border-red-900/50 text-red-400 text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                {error}
-              </div>
-            )}
-
-            {/* Results */}
-            {(sql || result) && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 pb-20">
-                <SqlEditor
-                  sql={sql}
-                  onChange={setSql}
-                  onRun={handleRunQuery}
-                  isRunning={isExecuting}
-                  isReadOnly={!db}
-                />
-                
-                {db ? (
-                    <ResultsTable result={result} />
-                ) : (
-                    <div className="grid md:grid-cols-2 gap-4">
-                        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5">
-                            <h3 className="text-slate-300 font-medium mb-2 flex items-center gap-2">
-                                <Terminal className="w-4 h-4 text-indigo-400" />
-                                Next Steps
-                            </h3>
-                            <p className="text-slate-500 text-sm leading-relaxed">
-                                Copy the generated SQL and execute it in your local database client (e.g., DBeaver, TablePlus, or sqlite3 CLI).
-                            </p>
-                        </div>
-                        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5">
-                             <h3 className="text-slate-300 font-medium mb-2 flex items-center gap-2">
-                                <Database className="w-4 h-4 text-emerald-400" />
-                                Want to run it here?
-                            </h3>
-                            <p className="text-slate-500 text-sm leading-relaxed">
-                                Upload a SQLite database file using the "Upload" button in the top right to execute queries directly in the browser.
-                            </p>
-                        </div>
-                    </div>
-                )}
-              </div>
-            )}
-            
-          </div>
+                    {/* Results Table Card */}
+                    {result && (
+                       <div className="animate-slide-up">
+                           <div className="flex items-center gap-2 mb-2 px-1">
+                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                             <span className="text-xs font-mono text-emerald-400 uppercase tracking-wider">Result Data</span>
+                          </div>
+                          <ResultsTable result={result} />
+                       </div>
+                    )}
+                 </div>
+              )}
+           </div>
         </div>
+
       </div>
     </div>
   );
